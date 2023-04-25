@@ -50,8 +50,12 @@ public class Main {
         private Socket clientSocket;
         private BufferedWriter out;
         private BufferedReader in;
+        private BufferedInputStream fileIn;
+        private BufferedOutputStream fileOut;
         private Socket listenSocket;
         private BufferedWriter listenOut;
+        private InputStream inputStream;
+        private OutputStream outputStream;
         private BufferedReader listenIn;
         private ByteArrayOutputStream bos;
         private ObjectOutputStream outObj;
@@ -61,8 +65,12 @@ public class Main {
 
         public ClientThread(Socket clientSocket) throws IOException {
             this.clientSocket = clientSocket;
-            this.in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-            this.out = new BufferedWriter(new OutputStreamWriter(clientSocket.getOutputStream()));
+            this.inputStream = clientSocket.getInputStream();
+            this.outputStream = clientSocket.getOutputStream();
+            this.in = new BufferedReader(new InputStreamReader(this.inputStream));
+            this.out = new BufferedWriter(new OutputStreamWriter(this.outputStream));
+            this.fileIn = new BufferedInputStream(inputStream);
+            this.fileOut = new BufferedOutputStream(outputStream);
         }
         public void setListenSocket(Socket socket) throws IOException {
             this.listenSocket = socket;
@@ -97,6 +105,15 @@ public class Main {
             oos.close();
             return new String(Base64.getEncoder().encode(baos.toByteArray()));
         }
+        private void broadUserExit(String username) throws IOException {
+            printToListen("/userExit");
+            printToListen(username);
+        }
+
+        private void broadUserLogin(String username) throws IOException {
+            printToListen("/userLogin");
+            printToListen(username);
+        }
 
 
         public void run() {
@@ -119,6 +136,15 @@ public class Main {
 //                                out.println("200");
                             }
                             break;
+                        case "/notifyAllUsers":
+                            clients.forEach((key, value) -> {
+                                try {
+                                    value.broadUserLogin(this.username);
+                                } catch (IOException ex) {
+                                    throw new RuntimeException(ex);
+                                }
+                            });
+                            break;
                         case "/getAllRecords"://如果有聊天记录（True），依次发给客户端，如果没有（False），则创建该用户的文件夹
                             File records = new File("chatting-server/src/main/database/" + this.username);
                             if(!records.exists()){
@@ -133,7 +159,13 @@ public class Main {
                                     print(Integer.toString(files.length));//告诉client有多少个
                                     for (File file : files) {
                                         try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
-                                            print(file.getName().substring(0, file.getName().length()-4));//会话名字
+                                            String sessionName = file.getName().substring(0, file.getName().length()-4);
+                                            print(sessionName);//会话名字
+                                            if((sessionName.split(",").length == 1) && !clients.containsKey(sessionName)){//是私聊且这个人不在
+                                                print("offline");
+                                            }else{
+                                                print("online");
+                                            }
                                             String line;
                                             while ((line = reader.readLine()) != null) {
                                                 // 读取文件内容并处理
@@ -180,7 +212,33 @@ public class Main {
                             String strMessage = in.readLine();
                             Message oriMessage = deserialize(strMessage);
                             String[] split = oriMessage.getSendTo().split(",");
+                            //如果文件，将文件存入files
+//                            if(oriMessage.isFile()){
+//                                long fileSize = Long.parseLong(in.readLine());
+//                                System.out.println(fileSize);
+//                                try (BufferedOutputStream bufferedOutputStream = new BufferedOutputStream(Files.newOutputStream(new File("chatting-server/src/main/files", oriMessage.getUUID().toString()).toPath()))) {
+//                                    byte[] buffer = new byte[655442];
+//                                    int bytesRead;
+//                                    long totalBytesRead = 0;
+////                                    while (totalBytesRead < fileSize && ((bytesRead = fileIn.read(buffer)) != -1)) {
+////                                        bufferedOutputStream.write(buffer, 0, bytesRead);
+////                                        totalBytesRead += bytesRead;
+////                                        System.out.println("bytesRead = "+bytesRead + ", totalBytesRead = "+totalBytesRead);
+////                                    }
+//                                    for (int i = 0; i < 2; i++) {
+//                                        bytesRead = fileIn.read(buffer);
+//                                        bufferedOutputStream.write(buffer, 0, bytesRead);
+//                                    }
+//
+//                                    System.out.println("out of the while");
+//                                    bufferedOutputStream.flush();
+//                                    File test = new File("chatting-server/src/main/files", oriMessage.getUUID().toString());
+//                                    System.out.println(test.length());
+//                                }
+//                                System.out.println("save file");
+//                            }
                             if(split.length == 1){//是私聊
+                                System.out.println("enter siliao");
                                 ClientThread clientThread = clients.get(oriMessage.getSendTo());
                                 clientThread.printToListen("/receivePrivateMessage");
                                 clientThread.printToListen(serialize(oriMessage));
@@ -195,6 +253,9 @@ public class Main {
                                 String chatName = oriMessage.getSendTo();
                                 String[] users = chatName.split(",");
                                 String sendBy = oriMessage.getSentBy();
+                                PrintWriter writer = new PrintWriter(new FileWriter("chatting-server/src/main/database/"+this.username + "/" + chatName + ".txt",true));
+                                writer.println(strMessage);
+                                writer.close();
                                 for (int i = 0; i < users.length; i++) {
                                     //要剔除的是sendby的人
                                     //oriMessage不变，sendby是send信息的用户名，sendto是群聊名称
@@ -202,6 +263,9 @@ public class Main {
                                     ClientThread clientThread = clients.get(users[i]);
                                     clientThread.printToListen("/receiveGroupMessage");
                                     clientThread.printToListen(serialize(oriMessage));
+                                    PrintWriter writer1 = new PrintWriter(new FileWriter("chatting-server/src/main/database/"+users[i] + "/" + chatName + ".txt",true));
+                                    writer1.println(strMessage);
+                                    writer1.close();
                                 }
                             }
                             break;
@@ -210,17 +274,40 @@ public class Main {
                             String chatName = in.readLine();
                             System.out.println("server : "+ chatName);
                             String[] users = chatName.split(",");
+                            File newFile3 = new File("chatting-server/src/main/database/"+this.username + "/" + chatName + ".txt");
+                            newFile3.createNewFile();
                             for (int i = 0; i < users.length-1; i++) {
                                 String user = users[i];
+                                File newFile4 = new File("chatting-server/src/main/database/" + user + "/" + chatName + ".txt");
                                 clients.get(user).printToListen("/createGroupChat\n"+chatName);
                             }
                             break;
+                        case "/downloadFile":
+//                            String uuid = in.readLine();
+//                            try (BufferedInputStream bufferedInputStream = new BufferedInputStream(Files.newInputStream(new File("chatting-server/src/main/files/" + uuid).toPath()))) {
+//                                byte[] buffer = new byte[8192];
+//                                int bytesRead;
+//
+//                                while ((bytesRead = bufferedInputStream.read(buffer)) != -1) {
+//                                    fileOut.write(buffer, 0, bytesRead);
+//                                }
+//                                fileOut.flush();
+//                            }
                         default:
                             break;
                     }
                 }
             } catch (NullPointerException e) {
                 System.out.println(username + " exit!");
+                clients.remove(username);
+                clients.forEach((key, value) -> {
+                    try {
+                        System.out.println(key);
+                        value.broadUserExit(username);
+                    } catch (IOException ex) {
+                        throw new RuntimeException(ex);
+                    }
+                });
                 return;
             } catch (IOException | ClassNotFoundException  e){
                 throw new RuntimeException(e);

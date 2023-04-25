@@ -28,9 +28,11 @@
         <SplitPane dividerPositions="0.85" orientation="VERTICAL" prefHeight="200.0" prefWidth="160.0">
             <ListView fx:id="chatContentList" prefHeight="200.0" prefWidth="200.0"/>
             <HBox prefHeight="100.0" prefWidth="200.0">
-                <TextArea fx:id="inputArea" prefHeight="138.0" prefWidth="624.0" HBox.hgrow="ALWAYS"/>
+                <TextArea fx:id="inputArea" prefHeight="138.0" prefWidth="500.0" HBox.hgrow="ALWAYS"/>
                 <Button maxHeight="1.7976931348623157E308" mnemonicParsing="false" onAction="#doSendMessage"
                         text="Send" HBox.hgrow="ALWAYS"/>
+                <Button maxHeight="1.7976931348623157E308" mnemonicParsing="false" onAction="#doUploadFile"
+                        text="upload file" HBox.hgrow="ALWAYS"/>
             </HBox>
         </SplitPane>
     </SplitPane>

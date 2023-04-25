@@ -11,19 +11,31 @@ import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.Group;
+import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
-import javafx.scene.layout.HBox;
-import javafx.scene.layout.VBox;
+import javafx.scene.control.Button;
+import javafx.scene.control.Dialog;
+import javafx.scene.control.Label;
+import javafx.scene.control.TextArea;
+import javafx.scene.layout.*;
+import javafx.scene.shape.Circle;
+import javafx.stage.DirectoryChooser;
+import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import javafx.util.Callback;
 
 import javax.management.loading.PrivateClassLoader;
+import java.awt.*;
+import java.io.File;
 import java.io.IOException;
 import java.net.URL;
 import java.util.*;
+import java.util.List;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.atomic.AtomicReference;
+
 
 public class Controller implements Initializable {
 
@@ -32,8 +44,11 @@ public class Controller implements Initializable {
 
     @FXML
     ListView<String> chatList;
+    ChatObjCellFactory chatObjCellFactory = new ChatObjCellFactory();
     @FXML
     TextArea inputArea;
+
+
 
     ObservableList<String> chatObj;
     ObservableList<Message> chatContentObj;
@@ -90,6 +105,7 @@ public class Controller implements Initializable {
         //登录成功
         try {
             client.startListenThread();
+            client.notifyAllUsers();
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -104,6 +120,11 @@ public class Controller implements Initializable {
 //        Message ini = new Message(1000L,username,"other", "呱");
 //        Message ini2 = new Message(900L, "other", username,"呱");
         chatContentObj = FXCollections.observableArrayList();
+//        chatObjCellFactory = new ChatObjCellFactory();
+        chatList.setCellFactory(chatObjCellFactory);
+
+//        chatList.setCellFactory(new ChatObjCellFactory());
+
         chatObj = FXCollections.observableArrayList();
 
         chatContentList.setItems(chatContentObj);
@@ -143,7 +164,7 @@ public class Controller implements Initializable {
 
         // TODO: if the current user already chatted with the selected user, just open the chat with that user
         // TODO: otherwise, create a new chat item in the left panel, the title should be the selected user's name
-        client.checkPrivateChatById(user.get());
+        if(user.get() != null)client.checkPrivateChatById(user.get());
     }
 
     /**
@@ -190,7 +211,7 @@ public class Controller implements Initializable {
         stage.showAndWait();
 
         //获取了群聊对象后创建群聊
-        client.createGroupChat(selectedItems);
+        if(selectedItems.size() != 0)client.createGroupChat(selectedItems);
 
     }
 
@@ -219,11 +240,50 @@ public class Controller implements Initializable {
         inputArea.setText("");
 
     }
+    @FXML
+    public void doUploadFile() throws IOException {
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.setTitle("Select File");
+
+        // 设置文件选择器的初始目录
+        fileChooser.setInitialDirectory(new File(System.getProperty("user.home")));
+
+        // 显示文件选择器，并获取用户选择的文件
+        File selectedFile = fileChooser.showOpenDialog(inputArea.getScene().getWindow());
+
+        // 在这里处理选择的文件，例如上传文件
+        if (selectedFile != null) {
+            System.out.println("Selected file: " + selectedFile.getAbsolutePath());
+            // 你可以在这里添加文件上传的代码
+            client.uploadFile(selectedFile);
+        } else {
+            System.out.println("No file selected");
+        }
+
+    }
+
+    public void doDownloadFile(UUID uuid, String fileName) throws IOException {
+//        System.out.println("in download file");
+//        System.out.println("filename is " + fileName);
+        DirectoryChooser directoryChooser = new DirectoryChooser();
+        directoryChooser.setTitle("Select Download Location");
+        File selectedDirectory = directoryChooser.showDialog(inputArea.getScene().getWindow());
+
+        if (selectedDirectory != null) {
+            client.downloadFile(uuid, fileName, selectedDirectory);
+        }
+    }
 
     @FXML
     public void changeChat(){
+
         String selectedItem = chatList.getSelectionModel().getSelectedItem();
         client.loadRecords(selectedItem);
+    }
+
+    public void notifyMessage(String str){
+        System.out.println("notifymessage");
+        chatObjCellFactory.setCircleColor(chatList, str,Color.red);
     }
     /**
      * You may change the cell factory if you changed the design of {@code Message} model.
@@ -245,24 +305,91 @@ public class Controller implements Initializable {
 
                     HBox wrapper = new HBox();
                     Label nameLabel = new Label(msg.getSentBy());
-                    Label msgLabel = new Label(msg.getData());
-
                     nameLabel.setPrefSize(50, 20);
                     nameLabel.setWrapText(true);
                     nameLabel.setStyle("-fx-border-color: black; -fx-border-width: 1px;");
 
-                    if (username.equals(msg.getSentBy())) {
-                        wrapper.setAlignment(Pos.TOP_RIGHT);
-                        wrapper.getChildren().addAll(msgLabel, nameLabel);
-                        msgLabel.setPadding(new Insets(0, 20, 0, 0));
-                    } else {
-                        wrapper.setAlignment(Pos.TOP_LEFT);
-                        wrapper.getChildren().addAll(nameLabel, msgLabel);
-                        msgLabel.setPadding(new Insets(0, 0, 0, 20));
+
+                    if(msg.isFile() && !username.equals(msg.getSentBy())){
+                        HBox message = new HBox();
+                        Label messageLabel = new Label(msg.getFileName());
+                        Button button = new Button("download");
+                        button.setOnAction(e -> {
+                            try {
+                                doDownloadFile(msg.getUUID(),msg.getFileName());
+                            } catch (IOException ex) {
+                                throw new RuntimeException(ex);
+                            }
+                        });
+                        message.getChildren().addAll(messageLabel, button);
+                        if (username.equals(msg.getSentBy())) {
+                            wrapper.setAlignment(Pos.TOP_RIGHT);
+                            wrapper.getChildren().addAll(message, nameLabel);
+                            message.setPadding(new Insets(0, 20, 0, 0));
+                        } else {
+                            wrapper.setAlignment(Pos.TOP_LEFT);
+                            wrapper.getChildren().addAll(nameLabel, message);
+                            message.setPadding(new Insets(0, 0, 0, 20));
+                        }
+                    }else{
+                        Label msgLabel;
+                        if(msg.isFile()) msgLabel = new Label(msg.getFileName());
+                        else msgLabel = new Label(msg.getData());
+                        if (username.equals(msg.getSentBy())) {
+                            wrapper.setAlignment(Pos.TOP_RIGHT);
+                            wrapper.getChildren().addAll(msgLabel, nameLabel);
+                            msgLabel.setPadding(new Insets(0, 20, 0, 0));
+                        } else {
+                            wrapper.setAlignment(Pos.TOP_LEFT);
+                            wrapper.getChildren().addAll(nameLabel, msgLabel);
+                            msgLabel.setPadding(new Insets(0, 0, 0, 20));
+                        }
                     }
+
 
                     setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
                     setGraphic(wrapper);
+                }
+            };
+        }
+    }
+    private class ChatObjCellFactory implements Callback<ListView<String>, ListCell<String>> {
+        public void setCircleColor(ListView<String> listView, String str, Color color) {
+            listView.getItems().stream()
+                    .map(item -> listView.lookup("#hbox-" + item))
+                    .filter(hbox -> hbox instanceof HBox)
+                    .map(hbox -> (HBox) hbox)
+                    .filter(hbox -> {
+                        Label label = (Label) hbox.getChildren().get(0);
+                        return label.getText().equals(str);
+                    })
+                    .forEach(hbox -> {
+                        Circle circle = (Circle) hbox.getChildren().get(1);
+                        circle.setFill(javafx.scene.paint.Color.RED);
+                    });
+        }
+        @Override
+        public ListCell<String> call(ListView<String> stringListView) {
+            return new ListCell<String>() {
+
+                @Override
+                public void updateItem(String msg, boolean empty) {
+                    super.updateItem(msg, empty);
+                    if (empty || Objects.isNull(msg)) {
+                        setText(null);
+                        setGraphic(null);
+                        return;
+                    }
+
+                    Circle circle = new Circle(4);
+                    circle.setFill(null);
+                    Label nameLabel = new Label(msg);
+                    HBox hbox = new HBox();
+                    hbox.setId("hbox-" + msg); // 添加一个唯一的ID
+                    hbox.getChildren().addAll(nameLabel, circle);
+                    setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
+                    setGraphic(hbox);
+
                 }
             };
         }

@@ -7,19 +7,27 @@ import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.collections.ObservableListBase;
+import javafx.scene.Node;
 import javafx.scene.control.Alert;
 import javafx.scene.control.ButtonBar;
 import javafx.scene.control.ButtonType;
+import javafx.scene.control.Skin;
+import javafx.scene.layout.HBox;
 
 import java.io.*;
 import java.net.Socket;
 import java.net.SocketException;
+import java.nio.file.Files;
 import java.util.*;
 
 public class Client {
     private Socket socket;
     private BufferedWriter out;
     private BufferedReader in;
+    private InputStream inputStream;
+    private OutputStream outputStream;
+    private BufferedInputStream fileIn;
+    private BufferedOutputStream fileOut;
 
     private Controller controller;
     private Map<String, ObservableList<Message>> chatMap;
@@ -30,8 +38,12 @@ public class Client {
     public Client(Controller controller) throws IOException {
         this.socket = new Socket("localhost", 8080);
         System.out.println("client running at " + this.socket.getLocalPort());
-        this.in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-        this.out = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
+        this.inputStream = socket.getInputStream();
+        this.outputStream = socket.getOutputStream();
+        this.in = new BufferedReader(new InputStreamReader(this.inputStream));
+        this.out = new BufferedWriter(new OutputStreamWriter(this.outputStream));
+        this.fileIn = new BufferedInputStream(this.inputStream);
+        this.fileOut = new BufferedOutputStream(this.outputStream);
         print("REQUEST");
         this.controller = controller;
         this.chatMap = new HashMap<>();
@@ -63,22 +75,35 @@ public class Client {
         }
     }
 
+    public void notifyAllUsers() throws IOException {
+        print("/notifyAllUsers");
+    }
+
     public void getAllRecords() throws IOException, ClassNotFoundException {
         print("/getAllRecords");
         if(in.readLine().equals("True")){
             int count = Integer.parseInt(in.readLine());//有多少个会话
             for (int i = 0; i < count; i++) {
                 String chatName = in.readLine();//会话名称
+                String status = in.readLine();
                 ObservableList<Message> add = FXCollections.observableArrayList();
-                Platform.runLater(()->
-                        controller.chatObj.add(chatName)
-                );
+                if(status.equals("offline")){
+                    Platform.runLater(()->
+                            controller.chatObj.add(chatName+"(offline)")
+                    );
+                }else{
+                    Platform.runLater(()->
+                            controller.chatObj.add(chatName)
+                    );
+                }
+
                 String mstr;
                 while(!(mstr = in.readLine()).equals("end")){
                     Message message = deserialize(mstr);
                     add.add(message);
                 }
-                chatMap.put(chatName, add);
+                if(status.equals("offline"))chatMap.put(chatName+"(offline)", add);
+                else chatMap.put(chatName, add);
             }
         }
     }
@@ -93,20 +118,6 @@ public class Client {
             users.add(user);
         }
         return users;
-//        while(in.ready()){
-//            String user = in.readLine();
-//            users.add(user);
-//            System.out.println("client receive: " + user);
-//        }
-
-//        while (true) {
-//            while(in.ready()){
-//                String user = in.readLine();
-//                users.add(user);
-//                System.out.println("client receive: " + user);
-//            }
-//
-//        }
     }
 
     public void checkPrivateChatById(String id) throws IOException {
@@ -135,6 +146,51 @@ public class Client {
         print("/sendMessage");
         print(serialized);
         chatMap.get(current).add(message);
+    }
+
+    public void uploadFile(File file) throws IOException {
+        Message message = new Message(System.currentTimeMillis(), username, current, "");
+        message.setFile(true);
+        message.setUUID(UUID.randomUUID());
+        message.setFileName(file.getName());
+        String serialized = serialize(message);
+        print("/sendMessage");
+        print(serialized);
+        chatMap.get(current).add(message);
+        try (BufferedInputStream bufferedInputStream = new BufferedInputStream(Files.newInputStream(file.toPath()));
+             BufferedOutputStream bufferedOutputStream = new BufferedOutputStream(Files.newOutputStream(new File("chatting-client/src/main/files",message.getUUID().toString()).toPath()))) {
+
+            long length = file.length();
+            System.out.println("file length: "+Long.toString(length));
+//            print(Long.toString(length));
+            byte[] buffer = new byte[8192];
+            int bytesRead;
+            long totalBytesRead = 0;
+            while (totalBytesRead < length && ((bytesRead = bufferedInputStream.read(buffer)) != -1)) {
+                bufferedOutputStream.write(buffer, 0, bytesRead);
+//                bufferedOutputStream.flush();
+                totalBytesRead += bytesRead;
+                System.out.println("bytesRead = "+bytesRead + ", totalBytesRead = "+totalBytesRead);
+            }
+            System.out.println("out of the while");
+            bufferedOutputStream.flush();
+
+        }
+    }
+
+    public void downloadFile(UUID uuid, String fileName, File dictionary) throws IOException {
+//        print("/downloadFile");
+//        print(uuid.toString());
+        try (   BufferedInputStream bufferedInputStream = new BufferedInputStream(Files.newInputStream(new File("chatting-client/src/main/files", uuid.toString()).toPath()));
+            BufferedOutputStream bufferedOutputStream = new BufferedOutputStream(Files.newOutputStream(new File(dictionary.getAbsoluteFile(), fileName).toPath()))) {
+            byte[] buffer = new byte[8192];
+            int bytesRead;
+            while ((bytesRead = bufferedInputStream.read(buffer)) != -1) {
+                bufferedOutputStream.write(buffer, 0, bytesRead);
+            }
+            bufferedOutputStream.flush();
+        }
+
     }
 
     public void createGroupChat(List<String> otherUsers) throws IOException {
@@ -171,22 +227,6 @@ public class Client {
         ois.close();
         return message;
     }
-
-    //    private void sendRequest(HttpRequest request) throws IOException {
-//        outObj.writeObject(request);
-//        byte[] serializedObject = bos.toByteArray();
-//        out.write(serializedObject);
-//    }
-//
-//    private HttpResponse readResponse() throws IOException, ClassNotFoundException {
-//        byte[] buffer = new byte[1024];
-//        int length = in.read(buffer);
-//        if(length == -1)return null;
-//        byte[] response = new byte[length];
-//        System.arraycopy(buffer, 0,response,0, length);
-//        inObj = new ObjectInputStream(new ByteArrayInputStream(response));
-//        return (HttpResponse) inObj.readObject();
-//    }
     private static class ListenThread extends Thread {
         private Socket listener;
         private BufferedWriter listenOut;
@@ -215,23 +255,6 @@ public class Client {
 
         public void run() {
             try {
-//                Timer timer = new Timer();
-//                timer.scheduleAtFixedRate(new TimerTask() {
-//                    @Override
-//                    public void run() {
-//                        try {
-//                            System.out.println("run timer");
-//                            if(listener.isClosed()){
-//                                System.out.println("server closed!");
-//                                listener.close();
-//                                client.socket.close();
-//                                System.exit(1);
-//                            }
-//                        } catch (IOException e) {
-//
-//                        }
-//                    }
-//                }, 1000, 1000);
 
                 while(true){
                     String op = listenIn.readLine();
@@ -255,6 +278,7 @@ public class Client {
                             System.out.println(chatId);
                             Platform.runLater(()->{
                                 client.chatMap.get(chatId).add(oriMessage);
+                                if(client.current == null || !client.current.equals(chatId))client.controller.notifyMessage(chatId);
                             });
                             break;
                         case "/createGroupChat":
@@ -273,8 +297,32 @@ public class Client {
                             System.out.println(message);
                             Platform.runLater(()->{
                                 client.chatMap.get(message.getSendTo()).add(message);
+                                if(client.current == null || !client.current.equals(message.getSendTo())) client.controller.notifyMessage(message.getSendTo());
                             });
                             break;
+                        case "/userExit":
+                            String user = listenIn.readLine();
+                            Platform.runLater(()->{
+                                if(client.controller.chatObj.contains(user)){
+                                    client.controller.chatObj.remove(user);
+                                    client.controller.chatObj.add(user+"(offline)");
+                                    client.chatMap.put(user+"(offline)",client.chatMap.get(user));
+                                    client.chatMap.remove(user);
+                                }
+                            });
+                            break;
+                        case "/userLogin":
+                            String user1 = listenIn.readLine();
+                            Platform.runLater(()->{
+                                if(client.controller.chatObj.contains(user1+"(offline)")){
+                                    client.controller.chatObj.remove(user1+"(offline)");
+                                    client.controller.chatObj.add(user1);
+                                    client.chatMap.put(user1,client.chatMap.get(user1+"(offline)"));
+                                    client.chatMap.remove(user1+"(offline)");
+                                }
+                            });
+                            break;
+
                     }
                 }
             } catch (IOException | ClassNotFoundException e) {
@@ -297,22 +345,6 @@ public class Client {
 //                System.exit(1);
             }
 
-//            while (true) {
-//                try {
-//                    String op = in.readLine();
-//                    switch (op) {
-//                        case "/message":
-//                            int lines = Integer.parseInt(in.readLine());
-//                            StringBuilder message = new StringBuilder("");
-//                            for (int i = 0; i < lines; i++) {
-//                                message.append(in.readLine());
-//                                message.append("\n");
-//                            }
-//                    }
-//                } catch (IOException e) {
-//                    throw new RuntimeException(e);
-//                }
-//            }
         }
     }
 
