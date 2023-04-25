@@ -61,14 +61,13 @@ public class Client {
     }
 
     public boolean checkUsername(String username) throws IOException, ClassNotFoundException {
-//        out.println("/checkUsername");
-//        out.println(username);
         print("/checkUsername");
         print(username);
         while (true) {
             String response = in.readLine();
-            if (response == null) continue;
-            else {
+            if (response == null) {
+                continue;
+            } else {
                 this.username = username;
                 return response.equals("200");
             }
@@ -81,28 +80,28 @@ public class Client {
 
     public void getAllRecords() throws IOException, ClassNotFoundException {
         print("/getAllRecords");
-        if(in.readLine().equals("True")){
+        if (in.readLine().equals("True")) {
             int count = Integer.parseInt(in.readLine());//有多少个会话
             for (int i = 0; i < count; i++) {
                 String chatName = in.readLine();//会话名称
                 String status = in.readLine();
                 ObservableList<Message> add = FXCollections.observableArrayList();
-                if(status.equals("offline")){
-                    Platform.runLater(()->
-                            controller.chatObj.add(chatName+"(offline)")
+                if (status.equals("offline")) {
+                    Platform.runLater(() ->
+                            controller.chatObj.add(chatName + "(offline)")
                     );
-                }else{
-                    Platform.runLater(()->
+                } else {
+                    Platform.runLater(() ->
                             controller.chatObj.add(chatName)
                     );
                 }
 
                 String mstr;
-                while(!(mstr = in.readLine()).equals("end")){
+                while (!(mstr = in.readLine()).equals("end")) {
                     Message message = deserialize(mstr);
                     add.add(message);
                 }
-                if(status.equals("offline"))chatMap.put(chatName+"(offline)", add);
+                if (status.equals("offline")) chatMap.put(chatName + "(offline)", add);
                 else chatMap.put(chatName, add);
             }
         }
@@ -131,24 +130,26 @@ public class Client {
             loadRecords(id);
         }
     }
+
     public List<String> checkOnlineMem() throws IOException {
         System.out.println("???");
         List<String> groupMem = new ArrayList<>();
         String[] split = current.split(",");
-        if(split.length == 1)return groupMem;
-        else{
+        if (split.length == 1) return groupMem;
+        else {
             groupMem.add(username);
             List<String> allUsers = getAllUsers();
             for (int i = 0; i < split.length; i++) {
                 String user = split[i];
-                if(allUsers.contains(user))groupMem.add(user);
+                if (allUsers.contains(user)) groupMem.add(user);
             }
             return groupMem;
         }
     }
+
     public void loadRecords(String id) {
-        Platform.runLater(()->
-                controller.chatContentList.setItems(chatMap.get(id)) );
+        Platform.runLater(() ->
+                controller.chatContentList.setItems(chatMap.get(id)));
         this.current = id;
 
         //如果是群聊，要在menubar上加入groupMember
@@ -159,7 +160,7 @@ public class Client {
 
     public void sendMessage(String text) throws IOException {
         System.out.println("in send message");
-        Message message = new Message(System.currentTimeMillis(), username, current,text);
+        Message message = new Message(System.currentTimeMillis(), username, current, text);
         String serialized = serialize(message);//Ioexception
         print("/sendMessage");
         print(serialized);
@@ -180,7 +181,7 @@ public class Client {
         try (BufferedInputStream bufferedInputStream = new BufferedInputStream(Files.newInputStream(file.toPath()));
              BufferedOutputStream bufferedOutputStream = new BufferedOutputStream(Files.newOutputStream(newFile.toPath()))) {
             long length = file.length();
-            System.out.println("file length: "+Long.toString(length));
+            System.out.println("file length: " + Long.toString(length));
 //            print(Long.toString(length));
             byte[] buffer = new byte[8192];
             int bytesRead;
@@ -189,7 +190,7 @@ public class Client {
                 bufferedOutputStream.write(buffer, 0, bytesRead);
 //                bufferedOutputStream.flush();
                 totalBytesRead += bytesRead;
-                System.out.println("bytesRead = "+bytesRead + ", totalBytesRead = "+totalBytesRead);
+                System.out.println("bytesRead = " + bytesRead + ", totalBytesRead = " + totalBytesRead);
             }
             System.out.println("out of the while");
             bufferedOutputStream.flush();
@@ -201,8 +202,8 @@ public class Client {
 //        print("/downloadFile");
 //        print(uuid.toString());
         File newFile = new File("/Users/kyy/Documents/java2/ass2/Assignment2/chatting-client/src/main/files" + uuid.toString());
-        try (   BufferedInputStream bufferedInputStream = new BufferedInputStream(Files.newInputStream(newFile.toPath()));
-            BufferedOutputStream bufferedOutputStream = new BufferedOutputStream(Files.newOutputStream(new File(dictionary.getAbsoluteFile(), fileName).toPath()))) {
+        try (BufferedInputStream bufferedInputStream = new BufferedInputStream(Files.newInputStream(newFile.toPath()));
+             BufferedOutputStream bufferedOutputStream = new BufferedOutputStream(Files.newOutputStream(new File(dictionary.getAbsoluteFile(), fileName).toPath()))) {
             byte[] buffer = new byte[8192];
             int bytesRead;
             while ((bytesRead = bufferedInputStream.read(buffer)) != -1) {
@@ -217,7 +218,7 @@ public class Client {
         //群聊名称为others+username
         StringBuilder chatNameBuilder = new StringBuilder();
         for (String otherUser : otherUsers) {
-            chatNameBuilder.append(otherUser+",");
+            chatNameBuilder.append(otherUser + ",");
         }
         chatNameBuilder.append(username);
         String chatName = chatNameBuilder.toString();
@@ -233,13 +234,14 @@ public class Client {
     }
 
 
-    private  String serialize(Message message) throws IOException {
+    private String serialize(Message message) throws IOException {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         ObjectOutputStream oos = new ObjectOutputStream(baos);
         oos.writeObject(message);
         oos.close();
         return new String(Base64.getEncoder().encode(baos.toByteArray()));
     }
+
     private static Message deserialize(String str) throws IOException, ClassNotFoundException {
         byte[] bytes = Base64.getDecoder().decode(str.getBytes());
         ObjectInputStream ois = new ObjectInputStream(new ByteArrayInputStream(bytes));
@@ -247,6 +249,7 @@ public class Client {
         ois.close();
         return message;
     }
+
     private static class ListenThread extends Thread {
         private Socket listener;
         private BufferedWriter listenOut;
@@ -263,7 +266,7 @@ public class Client {
             System.out.println("listener running at " + this.listener.getLocalPort());
             this.listenIn = new BufferedReader(new InputStreamReader(listener.getInputStream()));
             this.listenOut = new BufferedWriter(new OutputStreamWriter(listener.getOutputStream()));
-            print("LISTEN\n"+client.username);
+            print("LISTEN\n" + client.username);
         }
 
 
@@ -276,18 +279,18 @@ public class Client {
         public void run() {
             try {
 
-                while(true){
+                while (true) {
                     String op = listenIn.readLine();
-                    if(op!=null) System.out.println("listen port read" + op);
-                    switch(op){
+                    if (op != null) System.out.println("listen port read" + op);
+                    switch (op) {
                         case "/createPrivateChat":
                             System.out.println("1");
                             String other = listenIn.readLine();//和谁创建聊天
                             System.out.println(other);
-                            Platform.runLater(()->{
+                            Platform.runLater(() -> {
                                 this.client.controller.chatObj.add(other);
                                 ObservableList<Message> add = FXCollections.observableArrayList();
-                                this.client.chatMap.put(other,add);
+                                this.client.chatMap.put(other, add);
                             });
                             break;
                         case "/receivePrivateMessage":
@@ -296,49 +299,51 @@ public class Client {
                             System.out.println(oriMessage);
                             String chatId = oriMessage.getSentBy();
                             System.out.println(chatId);
-                            Platform.runLater(()->{
+                            Platform.runLater(() -> {
                                 client.chatMap.get(chatId).add(oriMessage);
-                                if(client.current == null || !client.current.equals(chatId))client.controller.notifyMessage(chatId);
+                                if (client.current == null || !client.current.equals(chatId))
+                                    client.controller.notifyMessage(chatId);
                             });
                             break;
                         case "/createGroupChat":
                             String chatName = listenIn.readLine();
                             System.out.println("listen chat name is : " + chatName);
 
-                            Platform.runLater(()->{
+                            Platform.runLater(() -> {
                                 this.client.controller.chatObj.add(chatName);
                                 ObservableList<Message> add2 = FXCollections.observableArrayList();
-                                this.client.chatMap.put(chatName,add2);
+                                this.client.chatMap.put(chatName, add2);
                             });
 
                             break;
                         case "/receiveGroupMessage":
                             Message message = deserialize(listenIn.readLine());
                             System.out.println(message);
-                            Platform.runLater(()->{
+                            Platform.runLater(() -> {
                                 client.chatMap.get(message.getSendTo()).add(message);
-                                if(client.current == null || !client.current.equals(message.getSendTo())) client.controller.notifyMessage(message.getSendTo());
+                                if (client.current == null || !client.current.equals(message.getSendTo()))
+                                    client.controller.notifyMessage(message.getSendTo());
                             });
                             break;
                         case "/userExit":
                             String user = listenIn.readLine();
-                            Platform.runLater(()->{
-                                if(client.controller.chatObj.contains(user)){
+                            Platform.runLater(() -> {
+                                if (client.controller.chatObj.contains(user)) {
                                     client.controller.chatObj.remove(user);
-                                    client.controller.chatObj.add(user+"(offline)");
-                                    client.chatMap.put(user+"(offline)",client.chatMap.get(user));
+                                    client.controller.chatObj.add(user + "(offline)");
+                                    client.chatMap.put(user + "(offline)", client.chatMap.get(user));
                                     client.chatMap.remove(user);
                                 }
                             });
                             break;
                         case "/userLogin":
                             String user1 = listenIn.readLine();
-                            Platform.runLater(()->{
-                                if(client.controller.chatObj.contains(user1+"(offline)")){
-                                    client.controller.chatObj.remove(user1+"(offline)");
+                            Platform.runLater(() -> {
+                                if (client.controller.chatObj.contains(user1 + "(offline)")) {
+                                    client.controller.chatObj.remove(user1 + "(offline)");
                                     client.controller.chatObj.add(user1);
-                                    client.chatMap.put(user1,client.chatMap.get(user1+"(offline)"));
-                                    client.chatMap.remove(user1+"(offline)");
+                                    client.chatMap.put(user1, client.chatMap.get(user1 + "(offline)"));
+                                    client.chatMap.remove(user1 + "(offline)");
                                 }
                             });
                             break;
@@ -347,9 +352,9 @@ public class Client {
                 }
             } catch (IOException | ClassNotFoundException e) {
                 throw new RuntimeException(e);
-            } catch (NullPointerException e){
+            } catch (NullPointerException e) {
                 System.out.println("server is done!");
-                Platform.runLater(()->{
+                Platform.runLater(() -> {
                     Alert alert = new Alert(Alert.AlertType.ERROR);
                     alert.setContentText("服务器崩啦");
                     ButtonType buttonTypeOK = new ButtonType("确定", ButtonBar.ButtonData.OK_DONE);
@@ -357,7 +362,7 @@ public class Client {
                     // 设置关闭事件的处理器
                     alert.setOnCloseRequest(event -> {
                         if (alert.getResult() == buttonTypeOK) {
-                           System.exit(1);
+                            System.exit(1);
                         }
                     });
                     alert.showAndWait();

@@ -18,6 +18,7 @@ public class Message implements Serializable {
     private boolean isFile;
     private String fileName;
     private UUID UUID;
+
     public boolean isFile() {
         return isFile;
     }
@@ -59,7 +60,7 @@ public class Message implements Serializable {
         return sentBy;
     }
 
-    public boolean test(){
+    public boolean test() {
         System.out.println("compile???");
         return false;
     }

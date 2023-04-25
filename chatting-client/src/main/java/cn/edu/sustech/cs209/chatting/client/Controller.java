@@ -53,7 +53,6 @@ public class Controller implements Initializable {
     TextArea inputArea;
 
 
-
     ObservableList<String> chatObj;
     ObservableList<Message> chatContentObj;
 
@@ -87,7 +86,7 @@ public class Controller implements Initializable {
             username = input.get();
             boolean check;
             try {
-                while(!client.checkUsername(username)){
+                while (!client.checkUsername(username)) {
                     Alert alert = new Alert(Alert.AlertType.ERROR);
                     alert.setTitle("错误");
 //                    alert.setHeaderText("发生了一个错误");
@@ -168,7 +167,7 @@ public class Controller implements Initializable {
 
         // TODO: if the current user already chatted with the selected user, just open the chat with that user
         // TODO: otherwise, create a new chat item in the left panel, the title should be the selected user's name
-        if(user.get() != null)client.checkPrivateChatById(user.get());
+        if (user.get() != null) client.checkPrivateChatById(user.get());
     }
 
     /**
@@ -215,7 +214,7 @@ public class Controller implements Initializable {
         stage.showAndWait();
 
         //获取了群聊对象后创建群聊
-        if(selectedItems.size() != 0)client.createGroupChat(selectedItems);
+        if (selectedItems.size() != 0) client.createGroupChat(selectedItems);
 
     }
 
@@ -234,7 +233,7 @@ public class Controller implements Initializable {
         Stage stage = new Stage();
         VBox box = new VBox(10);
         box.setAlignment(Pos.CENTER);
-        box.setPadding(new Insets(20,20,20,20));
+        box.setPadding(new Insets(20, 20, 20, 20));
         for (String user : users) {
             Label add = new Label(user);
             box.getChildren().add(add);
@@ -256,18 +255,19 @@ public class Controller implements Initializable {
 //        System.out.println("in send message");
 //        System.out.println(text);
         //发送的信息不能为空
-        if(text.equals("")){
+        if (text.equals("")) {
             System.out.println("text is null");
             Alert alert = new Alert(Alert.AlertType.ERROR);
 //            alert.setTitle("错误");
             alert.setContentText("发送的信息不能为空");
             alert.showAndWait();
-        }else{
+        } else {
             client.sendMessage(text);
         }
         inputArea.setText("");
 
     }
+
     @FXML
     public void doUploadFile() throws IOException {
         FileChooser fileChooser = new FileChooser();
@@ -303,16 +303,17 @@ public class Controller implements Initializable {
     }
 
     @FXML
-    public void changeChat(){
+    public void changeChat() {
 
         String selectedItem = chatList.getSelectionModel().getSelectedItem();
         client.loadRecords(selectedItem);
     }
 
-    public void notifyMessage(String str){
+    public void notifyMessage(String str) {
         System.out.println("notifymessage");
-        chatObjCellFactory.setCircleColor(chatList, str,Color.red);
+        chatObjCellFactory.setCircleColor(chatList, str, Color.red);
     }
+
     /**
      * You may change the cell factory if you changed the design of {@code Message} model.
      * Hint: you may also define a cell factory for the chats displayed in the left panel, or simply override the toString method.
@@ -338,13 +339,13 @@ public class Controller implements Initializable {
                     nameLabel.setStyle("-fx-border-color: black; -fx-border-width: 1px;");
 
 
-                    if(msg.isFile() && !username.equals(msg.getSentBy())){
+                    if (msg.isFile() && !username.equals(msg.getSentBy())) {
                         HBox message = new HBox();
                         Label messageLabel = new Label(msg.getFileName());
                         Button button = new Button("download");
                         button.setOnAction(e -> {
                             try {
-                                doDownloadFile(msg.getUUID(),msg.getFileName());
+                                doDownloadFile(msg.getUUID(), msg.getFileName());
                             } catch (IOException ex) {
                                 throw new RuntimeException(ex);
                             }
@@ -359,9 +360,9 @@ public class Controller implements Initializable {
                             wrapper.getChildren().addAll(nameLabel, message);
                             message.setPadding(new Insets(0, 0, 0, 20));
                         }
-                    }else{
+                    } else {
                         Label msgLabel;
-                        if(msg.isFile()) msgLabel = new Label(msg.getFileName());
+                        if (msg.isFile()) msgLabel = new Label(msg.getFileName());
                         else msgLabel = new Label(msg.getData());
                         if (username.equals(msg.getSentBy())) {
                             wrapper.setAlignment(Pos.TOP_RIGHT);
@@ -381,6 +382,7 @@ public class Controller implements Initializable {
             };
         }
     }
+
     private class ChatObjCellFactory implements Callback<ListView<String>, ListCell<String>> {
         public void setCircleColor(ListView<String> listView, String str, Color color) {
             listView.getItems().stream()
@@ -396,6 +398,7 @@ public class Controller implements Initializable {
                         circle.setFill(javafx.scene.paint.Color.RED);
                     });
         }
+
         @Override
         public ListCell<String> call(ListView<String> stringListView) {
             return new ListCell<String>() {
