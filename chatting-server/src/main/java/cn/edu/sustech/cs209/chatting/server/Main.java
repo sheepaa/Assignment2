@@ -239,9 +239,11 @@ public class Main {
 //                            }
                             if(split.length == 1){//是私聊
                                 System.out.println("enter siliao");
-                                ClientThread clientThread = clients.get(oriMessage.getSendTo());
-                                clientThread.printToListen("/receivePrivateMessage");
-                                clientThread.printToListen(serialize(oriMessage));
+                                if(clients.containsKey(oriMessage.getSendTo())){
+                                    ClientThread clientThread = clients.get(oriMessage.getSendTo());
+                                    clientThread.printToListen("/receivePrivateMessage");
+                                    clientThread.printToListen(serialize(oriMessage));
+                                }
                                 //在username文件中的sendTo.txt中加记录，在sendTo文件夹中的username.txt中加记录
                                 PrintWriter writer = new PrintWriter(new FileWriter("chatting-server/src/main/database/"+this.username + "/" + oriMessage.getSendTo() + ".txt",true));
                                 writer.println(strMessage);
@@ -260,9 +262,11 @@ public class Main {
                                     //要剔除的是sendby的人
                                     //oriMessage不变，sendby是send信息的用户名，sendto是群聊名称
                                     if(users[i].equals(sendBy))continue;
-                                    ClientThread clientThread = clients.get(users[i]);
-                                    clientThread.printToListen("/receiveGroupMessage");
-                                    clientThread.printToListen(serialize(oriMessage));
+                                    if(clients.containsKey(users[i])){
+                                        ClientThread clientThread = clients.get(users[i]);
+                                        clientThread.printToListen("/receiveGroupMessage");
+                                        clientThread.printToListen(serialize(oriMessage));
+                                    }
                                     PrintWriter writer1 = new PrintWriter(new FileWriter("chatting-server/src/main/database/"+users[i] + "/" + chatName + ".txt",true));
                                     writer1.println(strMessage);
                                     writer1.close();

@@ -18,6 +18,9 @@ import javafx.scene.control.*;
 import javafx.scene.control.Button;
 import javafx.scene.control.Dialog;
 import javafx.scene.control.Label;
+import javafx.scene.control.Menu;
+import javafx.scene.control.MenuBar;
+import javafx.scene.control.MenuItem;
 import javafx.scene.control.TextArea;
 import javafx.scene.layout.*;
 import javafx.scene.shape.Circle;
@@ -28,6 +31,7 @@ import javafx.util.Callback;
 
 import javax.management.loading.PrivateClassLoader;
 import java.awt.*;
+import java.awt.event.ActionEvent;
 import java.io.File;
 import java.io.IOException;
 import java.net.URL;
@@ -213,6 +217,30 @@ public class Controller implements Initializable {
         //获取了群聊对象后创建群聊
         if(selectedItems.size() != 0)client.createGroupChat(selectedItems);
 
+    }
+
+    @FXML
+    public void checkOnlineMem() throws IOException {
+        System.out.println("???");
+        List<String> users = client.checkOnlineMem();
+        System.out.println("onlin users is " + users);
+//        MenuBar menuBar = (MenuBar)inputArea.getScene().getRoot();
+//        Menu menu = menuBar.getMenus().get(1);
+//        for (String user : users) {
+//            MenuItem add = new MenuItem(user);
+//            menu.getItems().add(add);
+////            menu.getItems().add(add);
+//        }
+        Stage stage = new Stage();
+        VBox box = new VBox(10);
+        box.setAlignment(Pos.CENTER);
+        box.setPadding(new Insets(20,20,20,20));
+        for (String user : users) {
+            Label add = new Label(user);
+            box.getChildren().add(add);
+        }
+        stage.setScene(new Scene(box));
+        stage.showAndWait();
     }
 
     /**

@@ -131,11 +131,29 @@ public class Client {
             loadRecords(id);
         }
     }
-
+    public List<String> checkOnlineMem() throws IOException {
+        System.out.println("???");
+        List<String> groupMem = new ArrayList<>();
+        String[] split = current.split(",");
+        if(split.length == 1)return groupMem;
+        else{
+            groupMem.add(username);
+            List<String> allUsers = getAllUsers();
+            for (int i = 0; i < split.length; i++) {
+                String user = split[i];
+                if(allUsers.contains(user))groupMem.add(user);
+            }
+            return groupMem;
+        }
+    }
     public void loadRecords(String id) {
         Platform.runLater(()->
                 controller.chatContentList.setItems(chatMap.get(id)) );
         this.current = id;
+
+        //如果是群聊，要在menubar上加入groupMember
+
+        //如果是私聊，要删除groupMember
 
     }
 
@@ -157,9 +175,10 @@ public class Client {
         print("/sendMessage");
         print(serialized);
         chatMap.get(current).add(message);
+        File newFile = new File("/Users/kyy/Documents/java2/ass2/Assignment2/chatting-client/src/main/files" + message.getUUID().toString());
+        newFile.createNewFile();
         try (BufferedInputStream bufferedInputStream = new BufferedInputStream(Files.newInputStream(file.toPath()));
-             BufferedOutputStream bufferedOutputStream = new BufferedOutputStream(Files.newOutputStream(new File("chatting-client/src/main/files",message.getUUID().toString()).toPath()))) {
-
+             BufferedOutputStream bufferedOutputStream = new BufferedOutputStream(Files.newOutputStream(newFile.toPath()))) {
             long length = file.length();
             System.out.println("file length: "+Long.toString(length));
 //            print(Long.toString(length));
@@ -181,7 +200,8 @@ public class Client {
     public void downloadFile(UUID uuid, String fileName, File dictionary) throws IOException {
 //        print("/downloadFile");
 //        print(uuid.toString());
-        try (   BufferedInputStream bufferedInputStream = new BufferedInputStream(Files.newInputStream(new File("chatting-client/src/main/files", uuid.toString()).toPath()));
+        File newFile = new File("/Users/kyy/Documents/java2/ass2/Assignment2/chatting-client/src/main/files" + uuid.toString());
+        try (   BufferedInputStream bufferedInputStream = new BufferedInputStream(Files.newInputStream(newFile.toPath()));
             BufferedOutputStream bufferedOutputStream = new BufferedOutputStream(Files.newOutputStream(new File(dictionary.getAbsoluteFile(), fileName).toPath()))) {
             byte[] buffer = new byte[8192];
             int bytesRead;
